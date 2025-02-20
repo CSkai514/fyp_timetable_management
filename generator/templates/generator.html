@@ -1,21 +1,54 @@
 <!DOCTYPE html>
+{% load static %}
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Timetable Generator</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <title>Generator</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
 </head>
 <body>
-    <h1>Upload CSV File</h1>
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        <input type="file" name="csv_file" required>
-        <button type="submit">Upload and Generate Timetable</button>
-    </form>
-
-    <hr>
-
-    <h1>Generated Timetable</h1>
+    <div class="top-nav">
+        <h2 class="main-title">Upload CSV File</h2>
+        <hr>
+    </div>
     
+    <div class="container">
+        <form class="upload-form" method="POST" enctype="multipart/form-data" id="uploadForm">
+            {% csrf_token %} 
+            <input type="file" name="timetable" id="timetable" class="timetable-upload">
+            <input type="submit" value="Upload and generate timetable" class="timetable-submit">
+        </form>
+    </div>
+    
+    <div class="container">
+        <h2>Generated Timetable</h2>
+         <table class="timetable" id="timetableOutput">
+            <tr class="first-row">
+                <th>Time</th>
+                <th>Monday</th>
+                <th>Tuesday</th>
+                <th>Wednesday</th>
+                <th>Thursday</th>
+                <th>Friday</th>
+            </tr>
+            <tr><th>8:00AM</th><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><th>9:00AM</th><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><th>10:00AM</th><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><th>11:00AM</th><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><th>12:00PM</th><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><th>1:00PM</th><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><th>2:00PM</th><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><th>3:00PM</th><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><th>4:00PM</th><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><th>5:00PM</th><td></td><td></td><td></td><td></td><td></td></tr>
+         </table>
+    </div>
+
+<script src="{% static 'js/main.js' %}"></script>
 </body>
 </html>
