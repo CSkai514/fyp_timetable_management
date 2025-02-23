@@ -1,54 +1,68 @@
-document.addEventListener("DOMContentLoaded", function () {
-    const form = document.querySelector(".upload-form");
-    const fileInput = document.querySelector(".timetable-upload");
-    const timetableTable = document.querySelector(".timetable");
+document.getElementById("uploadForm").addEventListener("submit", function (event) {
+    event.preventDefault();
+    
+    let formData = new FormData(this);
+    fetch("/generator/upload_csv/", {
+        method: "POST",
+        body: formData,
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert("Error: " + data.error);
+            return;
+        }
+        alert(data.message || "New timetable generated");
+        updateTimetable(data.timetable);
+    })
+    .catch(error => console.error("Error:", error));
+});
 
-    form.addEventListener("submit", function (e) {
-        e.preventDefault();
-        
-        const formData = new FormData();
-        formData.append("timetable", fileInput.files[0]);
+function updateTimetable(timetableData) {
+    let timetable = document.getElementById("timetableOutput");
+    let rows = timetable.getElementsByTagName("tr");
 
-        fetch("/generator/generate_timetable/", {
-            method: "POST",
-            body: formData,
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                alert("Error: " + data.error);
-                return;
-            }
-            
-            updateTimetable(data.timetable);
-        })
-        .catch(error => console.error("Error:", error));
-    });
-
-    function updateTimetable(timetable) {
-        // Clear existing timetable (except headers)
-        const rows = timetableTable.querySelectorAll("tr:not(.first-row)");
-        rows.forEach(row => {
-            const cells = row.querySelectorAll("td");
-            cells.forEach(cell => cell.innerHTML = "");
-        });
-
-        // Populate timetable with new data
-        for (const [hour, days] of Object.entries(timetable)) {
-            for (const [day, session] of Object.entries(days)) {
-                if (session) {
-                    const dayIndex = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].indexOf(day) + 1;
-                    const rowIndex = parseInt(hour) - 8 + 1; // Adjust for row positioning
-
-                    const cell = timetableTable.rows[rowIndex].cells[dayIndex];
-                    cell.classList.add("subject", `subject-${(rowIndex % 3) + 1}`);
-                    cell.innerHTML = `
-                        <span class="subject-title">${session.course}</span><br>
-                        ${session.lecturer}<br>
-                        ${session.classroom}
-                    `;
-                }
-            }
+    for (let i = 1; i < rows.length; i++) {
+        let cells = rows[i].getElementsByTagName("td");
+        for (let j = 0; j < cells.length; j++) {
+            cells[j].innerHTML = "";
+            cells[j].className = "";
         }
     }
-});
+
+    let colors = ["subject-1", "subject-2", "subject-3"];
+    let colorIndex = {};
+
+    for (let day in timetableData) {
+        let columnIndex = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].indexOf(day) + 1;
+        
+        for (let time in timetableData[day]) {
+            let rowIndex = parseInt(time) - 7;
+            let cell = rows[rowIndex].cells[columnIndex];
+
+            let courses = timetableData[day][time]; // ✅ Now courses is an array
+
+            if (!Array.isArray(courses)) continue; // Ensure it is an array
+
+            let content = "";
+            courses.forEach((entry) => {
+                let course = entry.course;
+                let lecturer = entry.lecturer;
+                let classroom = entry.classroom;
+
+                if (!colorIndex[course]) {
+                    colorIndex[course] = colors[Object.keys(colorIndex).length % colors.length];
+                }
+
+                content += `<div class="subject ${colorIndex[course]}">
+                                <span class="subject-title">${course}</span><br>
+                                <span>${lecturer}</span> <br>
+                                <span>${classroom}</span>
+                            </div>`;
+            });
+
+            cell.innerHTML = content;
+        }
+    }
+}
+

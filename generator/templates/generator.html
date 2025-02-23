@@ -18,10 +18,32 @@
     </div>
     
     <div class="container">
-        <form class="upload-form" method="POST" enctype="multipart/form-data" id="uploadForm">
-            {% csrf_token %} 
-            <input type="file" name="timetable" id="timetable" class="timetable-upload">
-            <input type="submit" value="Upload and generate timetable" class="timetable-submit">
+        {% csrf_token %} 
+        <form id="uploadForm" enctype="multipart/form-data">
+            <label for="intake_year">Intake Year:</label>
+            <select id="intake_year" name="intake_year">
+                <option value="2024">2024</option>
+                <option value="2025">2025</option>
+            </select>
+        
+            <label for="intake_month">Intake Month:</label>
+            <select id="intake_month" name="intake_month">
+                <option value="January">January</option>
+                <option value="May">May</option>
+                <option value="September">September</option>
+            </select>
+        
+            <label for="program">Program:</label>
+            <select id="program" name="program">
+                <option value="Computer Science">Computer Science</option>
+                <option value="Software Engineering">Software Engineering</option>
+                <option value="Data Science">Data Science</option>
+            </select>
+        
+            <label for="timetable">Upload CSV:</label>
+            <input type="file" id="timetable" name="timetable" accept=".csv" required>
+        
+            <button type="submit">Generate Timetable</button>
         </form>
     </div>
     
