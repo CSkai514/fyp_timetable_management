@@ -1,27 +1,9 @@
-document.getElementById("uploadForm").addEventListener("submit", function (event) {
-    event.preventDefault();
-    
-    let formData = new FormData(this);
-    fetch("/generator/upload_csv/", {
-        method: "POST",
-        body: formData,
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.error) {
-            alert("Error: " + data.error);
-            return;
-        }
-        alert(data.message || "New timetable generated");
-        updateTimetable(data.timetable);
-    })
-    .catch(error => console.error("Error:", error));
-});
 
 function updateTimetable(timetableData) {
     let timetable = document.getElementById("timetableOutput");
     let rows = timetable.getElementsByTagName("tr");
 
+    // Clear previous timetable entries
     for (let i = 1; i < rows.length; i++) {
         let cells = rows[i].getElementsByTagName("td");
         for (let j = 0; j < cells.length; j++) {
@@ -32,17 +14,25 @@ function updateTimetable(timetableData) {
 
     let colors = ["subject-1", "subject-2", "subject-3"];
     let colorIndex = {};
+    let timeSlots = {
+        8: 1, 9: 2, 10: 3, 11: 4, 12: 5,
+        13: 6, 14: 7, 15: 8, 16: 9, 17: 10
+    };
 
     for (let day in timetableData) {
         let columnIndex = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].indexOf(day) + 1;
         
         for (let time in timetableData[day]) {
-            let rowIndex = parseInt(time) - 7;
+            if (!timeSlots[time]) continue;  // Skip invalid time keys
+            
+            let rowIndex = timeSlots[parseInt(time)];  // Map time to row index
+            
+            if (!rows[rowIndex]) continue;  // Ensure row exists
             let cell = rows[rowIndex].cells[columnIndex];
 
-            let courses = timetableData[day][time]; // ✅ Now courses is an array
+            let courses = timetableData[day][time];
 
-            if (!Array.isArray(courses)) continue; // Ensure it is an array
+            if (!Array.isArray(courses)) continue;
 
             let content = "";
             courses.forEach((entry) => {

@@ -19,7 +19,7 @@
     
     <div class="container">
         {% csrf_token %} 
-        <form id="uploadForm" enctype="multipart/form-data">
+        <form id="uploadcsvform" enctype="multipart/form-data">
             <label for="intake_year">Intake Year:</label>
             <select id="intake_year" name="intake_year">
                 <option value="2024">2024</option>
@@ -71,6 +71,69 @@
          </table>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        function sweetalert_func_call(message, status) {
+            let status_icon = "";
+            if (status == "error") {  
+                status_icon = "error";   
+            } else {  
+                status_icon = "success";  
+            }
+        
+            const Toast_error = Swal.mixin({
+                toast: true,
+                position: "top",
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+                didOpen: (toast) => {
+                    toast.onmouseenter = Swal.stopTimer;
+                    toast.onmouseleave = Swal.resumeTimer;
+                }
+            });
+        
+            Toast_error.fire({
+                icon: status_icon,
+                title: message
+            });
+        }
+        
+        document.getElementById("uploadcsvform").addEventListener("submit", function (event) {
+            event.preventDefault();
+            
+            let csvData = new FormData(this);
+            fetch("/generator/upload_csv/", {
+                method: "POST",
+                body: csvData,
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log("Backend Response:", JSON.stringify(data, null, 2)); // Debugging output
+            
+                if (data.error) {
+                    sweetalert_func_call(data.error, "error");
+                    return;
+                }
+            
+                if (!data.timetable || Object.keys(data.timetable).length === 0) {
+                    console.error("No timetable generated! Check backend.");
+                    sweetalert_func_call("No timetable generated! Please try again.", "error");
+                    return;
+                }
+            
+                const message = data.message || "New timetable generated!";
+                sweetalert_func_call(message, "success");
+            
+                // Adding a small delay to ensure the table is ready before updating
+                setTimeout(() => updateTimetable(data.timetable), 500);
+            })
+            .catch(error => {
+                console.error("Fetch error:", error);
+                sweetalert_func_call("An error occurred while generating the timetable.", "error");
+            });
+        });
+    </script>
 <script src="{% static 'js/main.js' %}"></script>
 </body>
 </html>

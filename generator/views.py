@@ -5,6 +5,7 @@ import pandas as pd
 from django.views.decorators.csrf import csrf_exempt
 import csv
 import random
+from collections import defaultdict
 from io import TextIOWrapper
 from django.http import JsonResponse
 from .models import TimetableEntry, Course, Lecturer, Classroom,Timetable
@@ -34,31 +35,30 @@ def upload_csv(request):
         )
 
         #  If timetable already exists, return it instead of generating a new one
-        existing_entries = TimetableEntry.objects.filter(timetable=timetable)
-        if existing_entries.exists():
+        existing_timetable_data = TimetableEntry.objects.filter(timetable=timetable)
+        if existing_timetable_data.exists():
             timetable_data = {day: {} for day in DAYS}
-            for entry in existing_entries:
-                start_hour = int(entry.start_time.strftime("%H"))
-                end_hour = int(entry.end_time.strftime("%H"))
+            for database_existing_data in existing_timetable_data:
+                start_hour = int(database_existing_data.start_time.strftime("%H"))
+                end_hour = int(database_existing_data.end_time.strftime("%H"))
 
                 for t in range(start_hour, end_hour):
-                    if t not in timetable_data[entry.day]:
-                        timetable_data[entry.day][t] = []
+                    if t not in timetable_data[database_existing_data.day]:
+                        timetable_data[database_existing_data.day][t] = []
 
-                    timetable_data[entry.day][t].append({
-                        "course": entry.course.name,
-                        "lecturer": entry.lecturer.name,
-                        "classroom": entry.classroom.name
+                    timetable_data[database_existing_data.day][t].append({
+                        "course": database_existing_data.course.name,
+                        "lecturer": database_existing_data.lecturer.name,
+                        "classroom": database_existing_data.classroom.name
                     })
 
-            return JsonResponse({"timetable": timetable_data, "message": "Existing timetable loaded!"})
+            return JsonResponse({"timetable": timetable_data, "message": "Existing timetable detected, Existing Timetable loaded!"})
         else:
-            #  Read CSV
             file = request.FILES["timetable"]
             decoded_file = file.read().decode("utf-8").splitlines()
             reader = csv.DictReader(decoded_file)
 
-            #  Fetch only courses from the uploaded CSV
+            # Fetch only course names from the uploaded CSV
             uploaded_course_names = [row["Name"].strip() for row in reader]
             existing_courses = Course.objects.filter(name__in=uploaded_course_names)
             course_dict = {course.name: course for course in existing_courses}
@@ -66,40 +66,72 @@ def upload_csv(request):
             courses = []
             for row in decoded_file[1:]:
                 course_name = row.split(",")[0].strip()
-                duration_str = row.split(",")[1].strip()
-
-                if not duration_str.isdigit():
-                    return JsonResponse({"error": f"Invalid duration: {duration_str}. Must be a number."}, status=400)
 
                 if course_name not in course_dict:
                     return JsonResponse({"error": f"Course '{course_name}' does not exist in the database."}, status=400)
 
-                courses.append({"name": course_name, "duration": int(duration_str), "course_obj": course_dict[course_name]})
+                # Fetch duration from the database
+                course_obj = course_dict[course_name]
+                course_duration = course_obj.duration  # Use duration from DB
 
-            #  Get available classrooms and lecturers
+                courses.append({"name": course_name, "duration": course_duration, "course_obj": course_obj})
+
+            # Get available classrooms and lecturers
             classrooms = list(Classroom.objects.all())
             if not classrooms:
-                return JsonResponse({"error": "No classrooms available. Please add classrooms first."}, status=400)
+                return JsonResponse({"error": "Something went wrong, Reason: No classrooms available. Please add classrooms first."}, status=400)
+            
+            for course in courses:
+                qualified_lecturers = Lecturer.objects.filter(courses=course["course_obj"])
+                if not qualified_lecturers.exists():
+                    return JsonResponse({"error": f"No qualified lecturers for course '{course['name']}'."}, status=400)
+            
 
             timetable_data = {day: {} for day in DAYS}
 
             for course in courses:
-                assigned = False
-                while not assigned:
-                    day = random.choice(DAYS)
-                    course_duration = course["duration"]
-                    start_time = random.randint(8, 17 - course_duration)
+                assigned = False  # Track if the course is successfully scheduled
 
-                    #  Only pick lecturers who can teach this course
-                    qualified_lecturers = Lecturer.objects.filter(courses=course["course_obj"])
-                    if not qualified_lecturers.exists():
-                        return JsonResponse({"error": f"No qualified lecturers for course '{course['name']}'."}, status=400)
+                # Get lecturers who can teach this course
+                qualified_lecturers = list(Lecturer.objects.filter(courses=course["course_obj"]))
+                if not qualified_lecturers:
+                    return JsonResponse({"error": f"No qualified lecturers for course '{course['name']}'."}, status=400)
 
-                    if all(t not in timetable_data[day] for t in range(start_time, start_time + course_duration)):
-                        lecturer = random.choice(list(qualified_lecturers))
-                        classroom = random.choice(classrooms)
+                # Shuffle days to randomize selection
+                days_shuffled = list(timetable_data.keys())
+                random.shuffle(days_shuffled)
 
-                        # Save to the database
+                # Try assigning a timeslot within Monday–Friday
+                for day in days_shuffled:
+                    available_times = list(range(8, 17 - course["duration"]))  # Available time slots (8 AM - 5 PM)
+                    random.shuffle(available_times)  # Randomize time slots
+
+                    for start_time in available_times:
+                        # Check if this time slot is free
+                        if any(t in timetable_data[day] for t in range(start_time, start_time + course["duration"])):
+                            continue  # Skip if time slot is occupied
+
+                        # Get available lecturers
+                        available_lecturers = [
+                            lecturer for lecturer in qualified_lecturers
+                            if all(t not in timetable_data[day].get(lecturer.name, []) for t in range(start_time, start_time + course["duration"]))
+                        ]
+                        if not available_lecturers:
+                            continue  # Skip if no lecturer is available
+
+                        # Get available classrooms
+                        available_classrooms = [
+                            classroom for classroom in classrooms
+                            if all(t not in timetable_data[day].get(classroom.id, []) for t in range(start_time, start_time + course["duration"]))
+                        ]
+                        if not available_classrooms:
+                            continue  # Skip if no classroom is available
+
+                        # Randomly assign a lecturer and a classroom
+                        lecturer = random.choice(available_lecturers)
+                        classroom = random.choice(available_classrooms)
+
+                        # Save the entry to the database
                         TimetableEntry.objects.create(
                             timetable=timetable,
                             lecturer=lecturer,
@@ -107,23 +139,32 @@ def upload_csv(request):
                             classroom=classroom,
                             day=day,
                             start_time=f"{start_time}:00",
-                            end_time=f"{start_time + course_duration}:00"
+                            end_time=f"{start_time + course['duration']}:00"
                         )
 
-                        #  Store data correctly in timetable_data
-                        for t in range(start_time, start_time + course_duration):
+                        # Update timetable_data to track booked slots
+                        for t in range(start_time, start_time + course["duration"]):
                             if t not in timetable_data[day]:
                                 timetable_data[day][t] = []
-
                             timetable_data[day][t].append({
                                 "course": course["name"],
                                 "lecturer": lecturer.name,
                                 "classroom": classroom.name
                             })
+                            timetable_data[day].setdefault(lecturer.name, []).append(t)  # Mark lecturer's time as booked
+                            timetable_data[day].setdefault(classroom.id, []).append(t)  # Mark classroom's time as booked
 
-                        assigned = True
+                        assigned = True  # Mark as assigned
+                        break  # Exit time loop
 
-            return JsonResponse({"timetable": timetable_data, "message": "New timetable generated successfully!"})
+                    if assigned:
+                        break  # Exit day loop
+
+                if not assigned:
+                    return JsonResponse({"error": f"Could not assign course '{course['name']}' due to scheduling conflicts."}, status=400)
+
+            return JsonResponse({"timetable": timetable_data, "message": "New timetable generated successfully!",}, status=200, json_dumps_params={'indent': 2})
+
 
     return JsonResponse({"error": "Invalid request"}, status=400)
 
