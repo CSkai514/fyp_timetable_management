@@ -96,6 +96,15 @@ textarea:not([rows]) {
     background: rgb(208, 236, 247); 
 }
 
+#uploadcsvform{
+  border: 1px solid black;
+  border-radius: 12px;
+  padding: 16px;
+  width: 50%;
+  margin: auto;
+  background-image: linear-gradient(rgb(208, 236, 247), rgb(240, 251, 255));
+}
+
 .upload-form{
     max-width: 425px;
     margin: auto;
@@ -104,24 +113,27 @@ textarea:not([rows]) {
 }
 
 .timetable-submit{
-    margin-top: 24px;
+    margin-top: 16px;
     text-align: center;
     border-radius: 12px;
     padding: 8px;
-    background: rgb(208, 236, 247); 
-    border: 2px solid rgb(121, 147, 157);
+    background: rgb(131, 207, 255); 
+    border: 2px solid rgb(0, 0, 0);
     cursor: pointer;
+    color: black;
 }
 
 .timetable-submit:hover{
-    background: rgb(157, 200, 216); 
-    border: 2px solid rgb(121, 147, 157);
+    background: rgb(75, 130, 164);  
+    color: white;
     cursor: pointer;
 }
 
 .timetable{
     width: 100%;
     border-spacing: 0;
+    margin-top: 8px;
+    margin-bottom: 24px;
 }
 
 @media screen and (max-width: 426px) {
