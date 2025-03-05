@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 # from .forms import CSVUploadForm, IntakeSelectionForm
 from collections import defaultdict
 import pandas as pd
@@ -7,8 +7,11 @@ import csv
 import random
 from collections import defaultdict
 from io import TextIOWrapper
+from django.http import FileResponse, HttpResponse
+import imgkit
 from django.http import JsonResponse
 from .models import TimetableEntry, Course, Lecturer, Classroom,Timetable
+import os
 # Create your views here.
 
 DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
@@ -101,31 +104,35 @@ def upload_csv(request):
                 days_shuffled = list(timetable_data.keys())
                 random.shuffle(days_shuffled)
 
-                # Try assigning a timeslot within Monday–Friday
                 for day in days_shuffled:
                     available_times = list(range(8, 17 - course["duration"]))  # Available time slots (8 AM - 5 PM)
                     random.shuffle(available_times)  # Randomize time slots
 
                     for start_time in available_times:
-                        # Check if this time slot is free
                         if any(t in timetable_data[day] for t in range(start_time, start_time + course["duration"])):
-                            continue  # Skip if time slot is occupied
+                            continue 
 
-                        # Get available lecturers
                         available_lecturers = [
                             lecturer for lecturer in qualified_lecturers
                             if all(t not in timetable_data[day].get(lecturer.name, []) for t in range(start_time, start_time + course["duration"]))
                         ]
                         if not available_lecturers:
-                            continue  # Skip if no lecturer is available
+                            continue 
 
-                        # Get available classrooms
                         available_classrooms = [
-                            classroom for classroom in classrooms
-                            if all(t not in timetable_data[day].get(classroom.id, []) for t in range(start_time, start_time + course["duration"]))
-                        ]
+                                classroom for classroom in classrooms
+                                if not TimetableEntry.objects.filter(
+                                    timetable__intake_year=timetable.intake_year,
+                                    timetable__intake_month=timetable.intake_month,
+                                    #timetable__semester=timetable.semester,
+                                    classroom=classroom,
+                                    day=day,
+                                    start_time__lt=f"{start_time + course['duration']}:00",
+                                    end_time__gt=f"{start_time}:00"
+                                ).exists()
+                            ]
                         if not available_classrooms:
-                            continue  # Skip if no classroom is available
+                            continue
 
                         # Randomly assign a lecturer and a classroom
                         lecturer = random.choice(available_lecturers)
@@ -155,10 +162,10 @@ def upload_csv(request):
                             timetable_data[day].setdefault(classroom.id, []).append(t)  # Mark classroom's time as booked
 
                         assigned = True  # Mark as assigned
-                        break  # Exit time loop
+                        break
 
                     if assigned:
-                        break  # Exit day loop
+                        break
 
                 if not assigned:
                     return JsonResponse({"error": f"Could not assign course '{course['name']}' due to scheduling conflicts."}, status=400)
@@ -180,3 +187,112 @@ def format_timetable(entries):
         timetable[entry.day].update({t: entry.course_name for t in range(start_time, start_time + duration)})
     
     return timetable
+
+
+def lecturer_timetable_check(request):
+
+    lecturer_id = request.GET.get("lecturer_id")  # Get lecturer ID from dropdown
+    selected_year = request.GET.get("year")  # Get selected year
+    Alllecturers = Lecturer.objects.all()
+    available_years = TimetableEntry.objects.values_list("timetable__intake_year", flat=True).distinct()
+    days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+    time_slots = TimetableEntry.objects.values("start_time").distinct().order_by("start_time")
+    timetable_data = None 
+    selected_lecturer = None
+        
+    if lecturer_id:
+        timetable_data = TimetableEntry.objects.filter(
+            lecturer_id=lecturer_id
+        )
+        selected_lecturer = Lecturer.objects.filter(id=lecturer_id).first()
+
+        if selected_year:
+            timetable_data = timetable_data.filter(timetable__intake_year=selected_year)
+    
+    return render(request, "lecturer_timetable_check.html", {
+        "alllecturers": Alllecturers,
+        "timetable_data": timetable_data,
+        "available_years": available_years,
+        "selected_year": selected_year,
+        "selected_lecturer": selected_lecturer,
+        "days": days,
+        "time_slots": time_slots
+    })
+def export_selected_lecturer_timetable_jpeg(request, lecturer_id, selected_year):
+    print('nothing now')
+#     lecturer = get_object_or_404(Lecturer, id=lecturer_id)
+
+#     # Get the timetable for the selected lecturer and year
+#     timetable_data = TimetableEntry.objects.filter(
+#             lecturer=lecturer, timetable__intake_year=selected_year
+#         )
+
+#     if not timetable_data.exists():
+#         return HttpResponse("No timetable found for this selection.", content_type="text/plain")
+
+#     # Generate HTML for the timetable
+#     html_code = f"""
+#     <html>
+#     <head>
+#         <style>
+#             table {{
+#                 width: 100%;
+#                 border-collapse: collapse;
+#                 text-align: center;
+#                 font-family: Arial, sans-serif;
+#             }}
+#             th, td {{
+#                 border: 1px solid black;
+#                 padding: 8px;
+#             }}
+#             th {{
+#                 background-color: #f2f2f2;
+#             }}
+#         </style>
+#     </head>
+#     <body>
+#         <h2>Timetable for {lecturer.name} - {selected_year}</h2>
+#         <table>
+#             <tr>
+#                 <th>Day</th>
+#                 <th>Time</th>
+#                 <th>Course</th>
+#                 <th>Classroom</th>
+#             </tr>
+#     """
+
+#     for entry in timetable_data:
+#         html_code += f"""
+#             <tr>
+#                 <td>{entry.day}</td>
+#                 <td>{entry.start_time} - {entry.end_time}</td>
+#                 <td>{entry.course.name}</td>
+#                 <td>{entry.classroom.name}</td>
+#             </tr>
+#         """
+
+#     html_code += """
+#         </table>
+#     </body>
+#     </html>
+#     """
+#  # Ensure media directory exists
+#     # Ensure media directory exists
+#     media_path = "media"
+#     os.makedirs(media_path, exist_ok=True)
+
+#     # Define file path
+#     filename = f"timetable_{lecturer_id}_{selected_year}.jpg"
+#     file_path = os.path.join(media_path, filename)
+
+#     # Convert HTML to Image using imgkit
+#     imgkit.from_string(html_code, file_path)
+
+#     # Ensure file is created before returning
+#     if not os.path.exists(file_path):
+#         return HttpResponse("Error: Image generation failed.", content_type="text/plain")
+
+#     # Return image as a download
+#     response = FileResponse(open(file_path, "rb"), content_type="image/jpeg")
+#     response["Content-Disposition"] = f'attachment; filename="{filename}"'
+#     return response

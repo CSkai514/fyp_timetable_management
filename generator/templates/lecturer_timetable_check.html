@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lecturer Timetable</title>
+</head>
+<body>
+
+    <h2>Select Lecturer to View Timetable</h2>
+    <!-- Lecturer Dropdown -->
+    <form method="GET" action="{% url 'lecturer_timetable_check' %}">
+        <select name="lecturer_id">
+            <option value="">-- Select Lecturer --</option>
+            {% for lecturer in alllecturers %}
+                <option value="{{ lecturer.id }}" {% if request.GET.lecturer_id == lecturer.id|stringformat:"s" %}selected{% endif %}>
+                    {{ lecturer.name }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <!-- Year Dropdown -->
+        <select name="year" id="year">
+            <option value="">-- Select Year --</option>
+            {% for year in available_years %}
+                <option value="{{ year }}" {% if year|stringformat:"s" == selected_year %}selected{% endif %}>
+                    {{ year }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <button type="submit">Generate</button>
+    </form>
+
+    <hr>
+    
+    {% if timetable_data %}
+    {% if timetable_data and timetable_data.first %}
+    <h2>Timetable for {{ timetable_data.first.lecturer.name }} -- {{ selected_year }}</h2>
+    {% else %}
+        <h2>No timetable selected.</h2>
+    {% endif %}
+
+    <table border="1" class="timetable" id="timetableOutput">
+        <thead>
+            <tr class="first-row">
+                <th>Time</th>
+                <th>Monday</th>
+                <th>Tuesday</th>
+                <th>Wednesday</th>
+                <th>Thursday</th>
+                <th>Friday</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for time_slot in time_slots %}
+            <tr>
+                <th>{{ time_slot.start_time|time:"h:i A" }}</th>
+                {% for day in days %}
+                <td>
+                    {% for entry in timetable_data %}
+                        {% if entry.day == day and entry.start_time == time_slot.start_time %}
+                            <b>{{ entry.course.name }}</b><br>
+                            {{ entry.lecturer.name }}<br>
+                            Room: {{ entry.classroom.name }}
+                        {% endif %}
+                    {% endfor %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+    {% if selected_lecturer %}
+    {% comment %} <form action="{% url 'export_selected_lecturer_timetable_jpeg' lecturer_id=selected_lecturer.id selected_year=selected_year %}" method="get"> {% endcomment %}
+    <form action="" method="get">
+        <button type="submit" class="btn btn-primary">Download as JPEG</button>
+    </form>
+    {% else %}
+        <p>Please select a lecturer first.</p>
+    {% endif %}
+</body>
+</html>
