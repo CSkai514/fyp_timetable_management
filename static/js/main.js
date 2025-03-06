@@ -23,11 +23,11 @@ function updateTimetable(timetableData) {
         let columnIndex = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].indexOf(day) + 1;
         
         for (let time in timetableData[day]) {
-            if (!timeSlots[time]) continue;  // Skip invalid time keys
+            if (!timeSlots[time]) continue;
             
-            let rowIndex = timeSlots[parseInt(time)];  // Map time to row index
+            let rowIndex = timeSlots[parseInt(time)];
             
-            if (!rows[rowIndex]) continue;  // Ensure row exists
+            if (!rows[rowIndex]) continue;
             let cell = rows[rowIndex].cells[columnIndex];
 
             let courses = timetableData[day][time];

@@ -1,14 +1,17 @@
 <!DOCTYPE html>
+{% load static %}
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <title>Lecturer Timetable</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
     <h2>Select Lecturer to View Timetable</h2>
-    <!-- Lecturer Dropdown -->
     <form method="GET" action="{% url 'lecturer_timetable_check' %}">
         <select name="lecturer_id">
             <option value="">-- Select Lecturer --</option>
@@ -19,7 +22,6 @@
             {% endfor %}
         </select>
 
-        <!-- Year Dropdown -->
         <select name="year" id="year">
             <option value="">-- Select Year --</option>
             {% for year in available_years %}
@@ -40,45 +42,128 @@
     {% else %}
         <h2>No timetable selected.</h2>
     {% endif %}
+    <div class="container" id="content">
+        <h2>Generated lecturer Timetable</h2>
+        <table class="timetable" id="timetableOutput">
+            <thead>
+                <tr class="first-row">
+                    <th>Time</th>
+                    <th>Monday</th>
+                    <th>Tuesday</th>
+                    <th>Wednesday</th>
+                    <th>Thursday</th>
+                    <th>Friday</th>
+                </tr>
+            </thead>
+            <tbody id="timetable-body"></tbody>
+        </table>
+    </div>
+    <button id="download">Download as PDF</button>
+    {% endif %}
 
-    <table border="1" class="timetable" id="timetableOutput">
-        <thead>
-            <tr class="first-row">
-                <th>Time</th>
-                <th>Monday</th>
-                <th>Tuesday</th>
-                <th>Wednesday</th>
-                <th>Thursday</th>
-                <th>Friday</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for time_slot in time_slots %}
-            <tr>
-                <th>{{ time_slot.start_time|time:"h:i A" }}</th>
-                {% for day in days %}
-                <td>
-                    {% for entry in timetable_data %}
-                        {% if entry.day == day and entry.start_time == time_slot.start_time %}
-                            <b>{{ entry.course.name }}</b><br>
-                            {{ entry.lecturer.name }}<br>
-                            Room: {{ entry.classroom.name }}
-                        {% endif %}
-                    {% endfor %}
-                </td>
-                {% endfor %}
-            </tr>
+    <script>
+
+        document.getElementById("download").addEventListener("click", async function() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({
+                orientation: "landscape",
+                unit: "mm",
+                format: "a4"
+            });
+        
+            const content = document.getElementById("content");
+        
+            const scale = window.devicePixelRatio || 2;
+            const canvas = await html2canvas(content, {
+                scale: scale, 
+                useCORS: true,
+                backgroundColor: null,
+                logging: false,
+                letterRendering: true 
+            });
+            const imgData = canvas.toDataURL("image/png");
+            const imgWidth = 290;  
+            const imgHeight = (canvas.height * imgWidth) / canvas.width; 
+            let lecturerName = [];
+            {% for entry in timetable_data %}
+            if (!lecturerName.includes("{{ entry.lecturer|escapejs }}")) {
+                lecturerName.push("{{ entry.lecturer|escapejs }}");
+            }
             {% endfor %}
-        </tbody>
-    </table>
-    {% endif %}
-    {% if selected_lecturer %}
-    {% comment %} <form action="{% url 'export_selected_lecturer_timetable_jpeg' lecturer_id=selected_lecturer.id selected_year=selected_year %}" method="get"> {% endcomment %}
-    <form action="" method="get">
-        <button type="submit" class="btn btn-primary">Download as JPEG</button>
-    </form>
-    {% else %}
-        <p>Please select a lecturer first.</p>
-    {% endif %}
+            let theyearfromlist =  "{{ selected_year|escapejs }}"; 
+            let fileName = `${lecturerName}_timetable${theyearfromlist}.pdf`.replace(/\s+/g, "_");
+            doc.addImage(imgData, "PNG", 10, 10, imgWidth, imgHeight);
+            doc.save(fileName);
+        });
+        
+    </script>
+        
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            document.querySelector("form").addEventListener("submit", function(event) {
+                event.preventDefault();
+                const lecturerId = document.querySelector("[name='lecturer_id']").value;
+                const year = document.querySelector("[name='year']").value;
+                if (!lecturerId || !year) {
+                    alert("Please select a lecturer and year.");
+                    return;
+                }
+        
+                fetch(`?lecturer_id=${lecturerId}&year=${year}`, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+                .then(response => response.json())
+                .then(data => {
+                    console.log("Received timetable data:", data);
+                    if (data && data.timetable_data) {
+                        generateLecturerTimetable(data.timetable_data);
+                    } else {
+                        console.log("No timetable data received");
+                    }
+                });
+            });
+        
+            function generateLecturerTimetable(timetableData) {  
+                const timeSlots = ["08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
+                                   "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM"];
+                const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+                const tbody = document.getElementById("timetable-body");
+                tbody.innerHTML = "";
+            
+                // Track remaining row spans for each day
+                const rowSpans = new Array(days.length).fill(0);
+            
+                timeSlots.forEach(time => {
+                    const row = document.createElement("tr");
+                    const timeCell = document.createElement("th");
+                    timeCell.textContent = time;
+                    row.appendChild(timeCell);
+            
+                    days.forEach((day, dayIndex) => {
+                        if (rowSpans[dayIndex] > 0) {
+                            rowSpans[dayIndex]--;
+                            return;
+                        }
+            
+                        const cell = document.createElement("td");
+                        const dayData = timetableData.find(item => item.day === day);
+            
+                        if (dayData) {
+                            const entry = dayData.entries.find(item => item.start_time === time);
+                            if (entry) {
+                                cell.innerHTML = `<b>${entry.course}</b><br>${entry.lecturer}<br>Room: ${entry.classroom}<br>
+                                                  <span style="font-size: 0.9em; color: gray;">${entry.start_time} - ${entry.end_time}</span>`;
+                                cell.rowSpan = entry.duration +1;
+                                rowSpans[dayIndex] = entry.duration + 1; 
+                            }
+                        }
+            
+                        if (!cell.innerHTML.trim()) cell.innerHTML = "";
+                        row.appendChild(cell);
+                    });
+            
+                    tbody.appendChild(row);
+                });
+            }
+        });
+        </script>
 </body>
 </html>
