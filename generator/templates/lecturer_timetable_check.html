@@ -9,11 +9,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
+<style>
+    #timetableOutput{
+        background-color: white;
+    }
+</style>
 <body>
 
     <h2>Select Lecturer to View Timetable</h2>
     <form method="GET" action="{% url 'lecturer_timetable_check' %}">
-        <select name="lecturer_id">
+        <select name="lecturer_id" id="lecturer_dropdownSelection">
             <option value="">-- Select Lecturer --</option>
             {% for lecturer in alllecturers %}
                 <option value="{{ lecturer.id }}" {% if request.GET.lecturer_id == lecturer.id|stringformat:"s" %}selected{% endif %}>
@@ -58,47 +63,76 @@
             <tbody id="timetable-body"></tbody>
         </table>
     </div>
-    <button id="download">Download as PDF</button>
+    <button id="download-as-pdf">Download as PDF</button>
+    <button id="download-image">Download as PNG</button>
+
     {% endif %}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <script>
 
-        document.getElementById("download").addEventListener("click", async function() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({
-                orientation: "landscape",
-                unit: "mm",
-                format: "a4"
+    document.addEventListener("DOMContentLoaded", function () {
+    const lecturerDropdown = document.getElementById("lecturer_dropdownSelection");
+    const yearDropdown = document.getElementById("year");
+
+    function getSelectedValues() {
+        let lecturerName = lecturerDropdown.options[lecturerDropdown.selectedIndex].text.trim();
+        let selectedYear = yearDropdown.value.trim();
+        console.log("Selected Lecturer Name:", lecturerName);
+        console.log("Selected Year:", selectedYear);
+        return { lecturerName, selectedYear };
+    }
+    lecturerDropdown.addEventListener("change", getSelectedValues);
+    yearDropdown.addEventListener("change", getSelectedValues);
+
+    document.getElementById("download-image").addEventListener("click", function () {
+        let { lecturerName, selectedYear } = getSelectedValues();
+        let filename = `Timetable_${lecturerName}_${selectedYear}.png`;
+
+        let node = document.getElementById("timetableOutput");
+        domtoimage.toPng(node)
+            .then(function (dataUrl) {
+                let link = document.createElement("a");
+                link.href = dataUrl;
+                link.download = filename;
+                link.click();
+            })
+            .catch(function (error) {
+                console.error("Error capturing timetable:", error);
             });
-        
-            const content = document.getElementById("content");
-        
-            const scale = window.devicePixelRatio || 2;
-            const canvas = await html2canvas(content, {
-                scale: scale, 
-                useCORS: true,
-                backgroundColor: null,
-                logging: false,
-                letterRendering: true 
+    });
+
+    document.getElementById("download-as-pdf").addEventListener("click", function () {
+        let { lecturerName, selectedYear } = getSelectedValues(); // Get dynamic values
+        let filenameForpdf = `Timetable_${lecturerName}_${selectedYear}.pdf`;
+
+        const timetable = document.getElementById("timetableOutput");
+        timetable.style.backgroundColor = "white";
+
+        domtoimage.toPng(timetable)
+            .then(function (dataUrl) {
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF("landscape");
+                const img = new Image();
+                img.src = dataUrl;
+
+                img.onload = function () {
+                    const imgWidth = 280;
+                    const imgHeight = (img.height * imgWidth) / img.width;
+
+                    pdf.addImage(img, "PNG", 10, 10, imgWidth, imgHeight);
+                    pdf.save(filenameForpdf);
+
+                    timetable.style.backgroundColor = "";
+                };
+            })
+            .catch(function (error) {
+                console.error("Error generating PDF: ", error);
             });
-            const imgData = canvas.toDataURL("image/png");
-            const imgWidth = 290;  
-            const imgHeight = (canvas.height * imgWidth) / canvas.width; 
-            let lecturerName = [];
-            {% for entry in timetable_data %}
-            if (!lecturerName.includes("{{ entry.lecturer|escapejs }}")) {
-                lecturerName.push("{{ entry.lecturer|escapejs }}");
-            }
-            {% endfor %}
-            let theyearfromlist =  "{{ selected_year|escapejs }}"; 
-            let fileName = `${lecturerName}_timetable${theyearfromlist}.pdf`.replace(/\s+/g, "_");
-            doc.addImage(imgData, "PNG", 10, 10, imgWidth, imgHeight);
-            doc.save(fileName);
-        });
-        
-    </script>
-        
-    <script>
+    });
+        getSelectedValues();
+});
         document.addEventListener("DOMContentLoaded", function() {
             document.querySelector("form").addEventListener("submit", function(event) {
                 event.preventDefault();
@@ -120,15 +154,14 @@
                     }
                 });
             });
-        
+            let lecturername = null;
             function generateLecturerTimetable(timetableData) {  
                 const timeSlots = ["08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
                                    "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM"];
                 const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
                 const tbody = document.getElementById("timetable-body");
                 tbody.innerHTML = "";
-            
-                // Track remaining row spans for each day
+        
                 const rowSpans = new Array(days.length).fill(0);
             
                 timeSlots.forEach(time => {
@@ -149,6 +182,7 @@
                         if (dayData) {
                             const entry = dayData.entries.find(item => item.start_time === time);
                             if (entry) {
+                                lecturername = entry.lecturer
                                 cell.innerHTML = `<b>${entry.course}</b><br>${entry.lecturer}<br>Room: ${entry.classroom}<br>
                                                   <span style="font-size: 0.9em; color: gray;">${entry.start_time} - ${entry.end_time}</span>`;
                                 cell.rowSpan = entry.duration +1;
@@ -164,6 +198,8 @@
                 });
             }
         });
-        </script>
+
+    </script>
+        
 </body>
 </html>
