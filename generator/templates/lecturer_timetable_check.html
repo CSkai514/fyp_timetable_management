@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <title>Lecturer Timetable</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
@@ -17,27 +19,47 @@
 <body>
 
     <h2>Select Lecturer to View Timetable</h2>
-    <form method="GET" action="{% url 'lecturer_timetable_check' %}">
-        <select name="lecturer_id" id="lecturer_dropdownSelection">
-            <option value="">-- Select Lecturer --</option>
-            {% for lecturer in alllecturers %}
-                <option value="{{ lecturer.id }}" {% if request.GET.lecturer_id == lecturer.id|stringformat:"s" %}selected{% endif %}>
-                    {{ lecturer.name }}
-                </option>
-            {% endfor %}
-        </select>
-
-        <select name="year" id="year">
-            <option value="">-- Select Year --</option>
-            {% for year in available_years %}
-                <option value="{{ year }}" {% if year|stringformat:"s" == selected_year %}selected{% endif %}>
-                    {{ year }}
-                </option>
-            {% endfor %}
-        </select>
-
-        <button type="submit">Generate</button>
-    </form>
+    <div class="container">
+        <form method="GET" action="{% url 'lecturer_timetable_check' %}" id="uploadcsvform">
+            <div class="row justify-content-center col-12 m-auto">
+                <div class="col-6 mb-3 text-center">
+                    <label for="lecturer_dropdownSelection">Select Lecturer:</label>
+                    <div class="box">
+                        <select name="lecturer_id" id="lecturer_dropdownSelection">
+                            <option value="">-- Select Lecturer --</option>
+                            {% for lecturer in alllecturers %}
+                                <option value="{{ lecturer.id }}" {% if request.GET.lecturer_id == lecturer.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ lecturer.name }}
+                                </option>
+                            {% endfor %}
+                        </select>    
+                    </div>
+                   
+                </div>
+                <div class="col-6 mb-3 text-center">
+                    <label for="year">Select Year:</label>
+                    <div class="box"> 
+                        <select name="year" id="year">
+                            <option value="">-- Select Year --</option>
+                            {% for year in available_years %}
+                                <option value="{{ year }}" {% if year|stringformat:"s" == selected_year %}selected{% endif %}>
+                                    {{ year }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                </div>
+                <div class="col-12 text-center mt-3">
+                    <button type="submit" class="timetable-submit">Generate</button>
+                </div>
+                <div class="download-buttons text-center mt-4">
+                    <button id="download-as-pdf" class="btn btn-primary">Download as PDF</button>
+                    <button id="download-image" class="btn btn-success">Download as PNG</button>
+                </div>
+            </div>
+        </form>
+    </div>
 
     <hr>
     
@@ -63,8 +85,7 @@
             <tbody id="timetable-body"></tbody>
         </table>
     </div>
-    <button id="download-as-pdf">Download as PDF</button>
-    <button id="download-image">Download as PNG</button>
+
 
     {% endif %}
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js"></script>
@@ -90,11 +111,11 @@
         let { lecturerName, selectedYear } = getSelectedValues();
         let filename = `Timetable_${lecturerName}_${selectedYear}.png`;
 
-        let node = document.getElementById("timetableOutput");
-        domtoimage.toPng(node)
-            .then(function (dataUrl) {
+        let getTheTimetable = document.getElementById("timetableOutput");
+        domtoimage.toPng(getTheTimetable)
+            .then(function (Timetable_data) {
                 let link = document.createElement("a");
-                link.href = dataUrl;
+                link.href = Timetable_data;
                 link.download = filename;
                 link.click();
             })
@@ -104,18 +125,18 @@
     });
 
     document.getElementById("download-as-pdf").addEventListener("click", function () {
-        let { lecturerName, selectedYear } = getSelectedValues(); // Get dynamic values
+        let { lecturerName, selectedYear } = getSelectedValues();
         let filenameForpdf = `Timetable_${lecturerName}_${selectedYear}.pdf`;
 
         const timetable = document.getElementById("timetableOutput");
         timetable.style.backgroundColor = "white";
 
         domtoimage.toPng(timetable)
-            .then(function (dataUrl) {
+            .then(function (Timetable_data) {
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF("landscape");
                 const img = new Image();
-                img.src = dataUrl;
+                img.src = Timetable_data;
 
                 img.onload = function () {
                     const imgWidth = 280;
@@ -128,7 +149,7 @@
                 };
             })
             .catch(function (error) {
-                console.error("Error generating PDF: ", error);
+                console.error("Failed or Error capturing timetable and generate PDF: ", error);
             });
     });
         getSelectedValues();

@@ -25,27 +25,36 @@
             <div class="row justify-content-center col-12 m-auto">
                     <div class="col-6 mb-3 text-center">
                         <label for="intake_year">Intake Year:</label>
-                        <select id="intake_year" name="intake_year">
-                            <option value="2024">2024</option>
-                            <option value="2025">2025</option>
-                        </select>
+                        <div class="box">
+                            <select id="intake_year" name="intake_year">
+                                <option value="2024">2024</option>
+                                <option value="2025">2025</option>
+                            </select>    
+                        </div>
+
                     </div>
                     <div class="col-6 mb-3 text-center">
                         <label for="intake_month">Intake Month:</label>
-                <select id="intake_month" name="intake_month">
-                    <option value="January">January</option>
-                    <option value="May">May</option>
-                    <option value="September">September</option>
-                </select>
+                        <div class="box">
+                            <select id="intake_month" name="intake_month">
+                                <option value="January">January</option>
+                                <option value="May">May</option>
+                                <option value="September">September</option>
+                            </select>
+                        </div>
+
                     </div>
 
                     <div class="col-6 text-center">
                         <label for="program">Program:</label>
-            <select id="program" name="program">
-                <option value="Computer Science">Computer Science</option>
-                <option value="Software Engineering">Software Engineering</option>
-                <option value="Data Science">Data Science</option>
-            </select>
+                        <div class="box">
+                            <select id="program" name="program">
+                                <option value="Computer Science">Computer Science</option>
+                                <option value="Software Engineering">Software Engineering</option>
+                                <option value="Data Science">Data Science</option>
+                            </select>
+                        </div>
+
                     </div>
                     <div class="col-12 text-center mt-3">
                         <label for="timetable">Upload CSV:</label>
@@ -60,6 +69,11 @@
             </div>
         
         </form>
+        <div class="download-buttons text-center mt-4">
+            <button id="download-as-pdf" class="btn btn-primary">Download as PDF</button>
+            <button id="download-image" class="btn btn-success">Download as PNG</button>
+        </div>
+        
     </div>
     
     <div class="container">
@@ -87,6 +101,81 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const intakeYearDropdown = document.getElementById("intake_year");
+        const intakeMonthDropdown = document.getElementById("intake_month");
+        const programDropdown = document.getElementById("program");
+
+        function getSelectedValues() {
+            let intakeYear = intakeYearDropdown.value.trim();
+            let intakeMonth = intakeMonthDropdown.value.trim();
+            let program = programDropdown.value.trim();
+            console.log("Selected Intake Year:", intakeYear);
+            console.log("Selected Intake Month:", intakeMonth);
+            console.log("Selected Program:", program);
+            return { intakeYear, intakeMonth, program };
+        }
+
+        // Event listeners for the dropdown changes
+        intakeYearDropdown.addEventListener("change", getSelectedValues);
+        intakeMonthDropdown.addEventListener("change", getSelectedValues);
+        programDropdown.addEventListener("change", getSelectedValues);
+
+        // PNG download
+        document.getElementById("download-image").addEventListener("click", function () {
+            let { intakeYear, intakeMonth, program } = getSelectedValues();
+            let filename = `Timetable_${program}_${intakeMonth}_${intakeYear}.png`;
+            let getTheTimetable = document.getElementById("timetableOutput");
+            getTheTimetable.style.backgroundColor = "white";
+            domtoimage.toPng(getTheTimetable)
+                .then(function (Timetable_data) {
+                    let link = document.createElement("a");
+                    link.href = Timetable_data;
+                    link.download = filename;
+                    link.click();
+                })
+                .catch(function (error) {
+                    console.error("Failed or Error capturing timetable and generate png", error);
+                });
+                getTheTimetable.style.backgroundColor = "";
+        });
+
+
+        // PDF download
+        document.getElementById("download-as-pdf").addEventListener("click", function () {
+            let { intakeYear, intakeMonth, program } = getSelectedValues();
+            let filenameForPdf = `Timetable_${program}_${intakeMonth}_${intakeYear}.pdf`;
+
+            const timetable = document.getElementById("timetableOutput");
+            timetable.style.backgroundColor = "white";
+
+            domtoimage.toPng(timetable)
+                .then(function (dataUrl) {
+                    const { jsPDF } = window.jspdf;
+                    const pdf = new jsPDF("landscape");
+                    const img = new Image();
+                    img.src = dataUrl;
+
+                    img.onload = function () {
+                        const imgWidth = 280;
+                        const imgHeight = (img.height * imgWidth) / img.width;
+
+                        pdf.addImage(img, "PNG", 10, 10, imgWidth, imgHeight);
+                        pdf.save(filenameForPdf);
+
+                        timetable.style.backgroundColor = "";
+                    };
+                })
+                .catch(function (error) {
+                    console.error("Failed or Error capturing timetable and generate PDF:", error);
+                });
+        });
+    });
+    </script>
     <script>
         function sweetalert_func_call(message, status) {
             let status_icon = "";

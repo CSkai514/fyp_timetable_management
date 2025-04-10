@@ -91,8 +91,6 @@ def upload_csv(request):
 
             for course in courses:
                 assigned = False 
-
-                # Get lecturers who can teach this course
                 qualified_lecturers = list(Lecturer.objects.filter(courses=course["course_obj"]))
                 if not qualified_lecturers:
                     return JsonResponse({"error": f"No qualified lecturers for course '{course['name']}'."}, status=400)
