@@ -2,7 +2,7 @@ import os
 from django.shortcuts import render, redirect, get_object_or_404
 # from .forms import CSVUploadForm, IntakeSelectionForm
 from collections import defaultdict
-import pandas as pd
+# import pandas as pd
 from django.views.decorators.csrf import csrf_exempt
 import csv
 import random
