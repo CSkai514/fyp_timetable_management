@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-p-$fydlc7(t@o2gw4(oujut=2hpq^ao_1z7un8^liv&mchpa9c
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['fyp-timetable-management.onrender.com']
+ALLOWED_HOSTS = ['fyp-timetable-management.onrender.com', '127.0.0.1']
 
 
 # Application definition
