@@ -18,7 +18,7 @@
 </style>
 <body>
 
-    <h2>Select Lecturer to View Timetable</h2>
+    <h2 style="text-align:center;padding-top:50px;">Select Lecturer to View Timetable</h2>
     <div class="container">
         <form method="GET" action="{% url 'lecturer_timetable_check' %}" id="uploadcsvform">
             <div class="row justify-content-center col-12 m-auto">
@@ -64,11 +64,7 @@
     <hr>
     
     {% if timetable_data %}
-    {% if timetable_data and timetable_data.first %}
-    <h2>Timetable for {{ timetable_data.first.lecturer.name }} -- {{ selected_year }}</h2>
-    {% else %}
-        <h2>No timetable selected.</h2>
-    {% endif %}
+    
     <div class="container" id="content">
         <h2>Generated lecturer Timetable</h2>
         <table class="timetable" id="timetableOutput">

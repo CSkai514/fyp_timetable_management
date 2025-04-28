@@ -213,7 +213,7 @@
             })
             .then(response => response.json())
             .then(data => {
-                console.log("Backend Response:", JSON.stringify(data, null, 2)); // Debugging output
+                console.log("Backend Response:", JSON.stringify(data, null, 2));
             
                 if (data.error) {
                     sweetalert_func_call(data.error, "error");

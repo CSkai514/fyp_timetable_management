@@ -203,7 +203,7 @@ def lecturer_timetable_check(request):
         for entry in query:
             start_hour = int(entry.start_time.strftime("%H"))
             end_hour = int(entry.end_time.strftime("%H"))
-            duration_hours = end_hour - start_hour  # Calculate duration
+            duration_hours = end_hour - start_hour   # Calculate duration
             start_time_str = entry.start_time.strftime("%I:%M %p")
             end_time_str = entry.end_time.strftime("%I:%M %p")
 
