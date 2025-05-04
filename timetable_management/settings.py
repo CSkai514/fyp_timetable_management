@@ -27,7 +27,8 @@ SECRET_KEY = 'django-insecure-p-$fydlc7(t@o2gw4(oujut=2hpq^ao_1z7un8^liv&mchpa9c
 DEBUG = True
 
 ALLOWED_HOSTS = ['fyp-timetable-management.onrender.com', '127.0.0.1']
-
+CSRF_TRUSTED_ORIGINS = ['https://fyp-timetable-management.onrender.com']
+CSRF_ALLOWED_ORIGINS = ['https://fyp-timetable-management.onrender.com']
 
 # Application definition
 
